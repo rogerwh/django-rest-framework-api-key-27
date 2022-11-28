@@ -4,7 +4,7 @@ from pathlib import Path
 from setuptools import find_packages, setup
 
 
-def get_version(package: str):
+def get_version(package):
     version = (Path("src") / package / "__version__.py").read_text()
     match = re.search("__version__ = ['\"]([^'\"]+)['\"]", version)
     assert match is not None
