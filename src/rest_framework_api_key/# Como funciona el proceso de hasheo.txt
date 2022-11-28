@@ -1,0 +1,110 @@
+# Como funciona el proceso de hasheo:
+
+---
+from .crypto import KeyGenerator
+generator = KeyGenerator()
+generator.generate()
+('hrvPCVT2.BjtOsYrJJQDa2Bu4BH5w6aEl8dMeGLzX', u'hrvPCVT2', u'pbkdf2_sha256$36000$bEfmzBinaRPh$A4qutERxdrOlwsvChkQ9nP1n7zXe257nHpq0VxcwKRk=')
+---
+
+> Desde el admin de django se ejecuta el metodo `save_model` en el cual se sobreescribe el objeto antes de guardar en base de datos
+
+    > se ejecua la linea `key = self.model.objects.assign_key(obj)` que es un metodo del Manager APIKeyManager (BaseAPIKeyManager) del modelo ApiKey (AbstractAPIKey)
+
+        > se instancia la clase generator `key_generator = KeyGenerator()`
+        > `key, prefix, hashed_key = self.key_generator.generate()`
+
+            > prefix = self.get_prefix()
+                > get_random_string(self.prefix_length) | get_random_string(8)
+            > secret_key = self.get_secret_key()
+                > get_random_string(self.secret_key_length) | get_random_string(32)
+            > key = concatenate(prefix, secret_key)
+            > hashed_key = self.hash(key)
+                > make_password(value)
+            return 
+                key: hrvPCVT2.BjtOsYrJJQDa2Bu4BH5w6aEl8dMeGLz
+                prefix: hrvPCVT2
+                hashed_key: pbkdf2_sha256$36000$bEfmzBinaRPh$A4qutERxdrOlwsvChkQ9nP1n7zXe257nHpq0VxcwKRk=
+        
+        > La key se manda por mensaje (es este el token ? con punto?) -> Probar en el de mascotas 
+        > 
+            except:
+            else:
+                pk = concatenate(prefix, hashed_key) hrvPCVT2.pbkdf2_sha256$36000$bEfmzBinaRPh$A4qutERxdrOlwsvChkQ9nP1n7zXe257nHpq0VxcwKRk=
+
+
+## Entiendo que el apikey es la variable key que concatena dos cadenas de 8 y de 32 con un punto "."
+
+---
+
+Permissions HasAPIKey (**BaseHasAPIKey**)
+
+model = APIKey -> Que modelo esta usando
+
+> has_permission
+    >  key = self.get_key(request)
+        > return self.key_parser.get(request) | EL KEY PARSER ES UNA INSTANCIA DE LA CLASE KeyParser
+            > Devuelve el key del request.META
+        > self.model.objects.is_valid(key) -> Devuelve un booleano | Se instancia el modelo y se ejecuta ese metodo
+            > is_valid -> Del Manager
+                > api_key = self.get_from_key(key)
+                    > prefix, _, _ = key.partition(".") Obtiene 3 valores?
+                        > Se hace una query a partir del prefix del APIKey
+                            Si se encuentra devuelve True
+                            Si no existe, es invalida o ha expirado, un False
+
+
+
+.----
+
+request
+<rest_framework.request.Request: GET '/fbv/pets/'>
+getattr(settings, "API_KEY_CUSTOM_HEADER", None)
+custom_header
+authorization
+'Api-Key 47wREuFQ.xst1bUdmutLN9TiTObcjgg7GPR3STfvn'
+_
+''
+key
+'47wREuFQ.xst1bUdmutLN9TiTObcjgg7GPR3STfvn'
+prefix
+'47wREuFQ'
+_
+'xst1bUdmutLN9TiTObcjgg7GPR3STfvn'
+_
+'xst1bUdmutLN9TiTObcjgg7GPR3STfvn'
+api_key
+<APIKey: RogerArjona>
+key
+'47wREuFQ.xst1bUdmutLN9TiTObcjgg7GPR3STfvn'
+self.hashed_key()
+Traceback (most recent call last):
+  File "/snap/pycharm-professional/311/plugins/python/helpers/pydev/_pydevd_bundle/pydevd_exec2.py", line 3, in Exec
+    exec(exp, global_vars, local_vars)
+  File "<input>", line 1, in <module>
+TypeError: 'str' object is not callable
+self.hashed_key
+'pbkdf2_sha256$390000$eCM7gHoBYFiJeDxdFQ4XZu$LBWxlpeYrn/OKAyJL6zUZ770hyOle9G7z/VFhReNFC0='
+
+----
+
+>>> from django.contrib.auth.hashers import check_password
+>>> check_password('47wREuFQ.xst1bUdmutLN9TiTObcjgg7GPR3STfvn', 'pbkdf2_sha256$390000$eCM7gHoBYFiJeDxdFQ4XZu$LBWxlpeYrn/OKAyJL6zUZ770hyOle9G7z/VFhReNFC0=')
+True
+>>> check_password('47wREuFQ.xst1bUdmutLN9TiTObcjgg7GPR3STfvnxx', 'pbkdf2_sha256$390000$eCM7gHoBYFiJeDxdFQ4XZu$LBWxlpeYrn/OKAyJL6zUZ770hyOle9G7z/VFhReNFC0=')
+False
+>>> check_password('47wREuFQ.xst1bUdmutLN9TiTObcjgg7GPR3STfvnxx', 'pbkdf2_sha256$390000$eCM7gHoBYFiJeDxdFQ4XZu$LBWxlpeYrn/OKAyJL6zUZ770hyOle9G7z/VFhReNFC0=')
+
+---
+
+>>> check_password('47wREuFQ.xst1bUdmutLN9TiTObcjgg7GPR3STfvn', 'pbkdf2_sha256$390000$3Lq9BgGzGlIDzfqZy2Yhfz$Ly8HMzYeD8ALd5bxOBX/KChfSTOcarQlsaSw6RNxBsI=')
+True
+>>> check_password('47wREuFQ.xst1bUdmutLN9TiTObcjgg7GPR3STfvn', 'pbkdf2_sha256$390000$eCM7gHoBYFiJeDxdFQ4XZu$LBWxlpeYrn/OKAyJL6zUZ770hyOle9G7z/VFhReNFC0=')
+True
+>>> check_password('47wREuFQ.xst1bUdmutLN9TiTObcjgg7GPR3STfvn', 'pbkdf2_sha256$390000$3Lq9BgGzGlIDzfqZy2Yhfz$Ly8HMzYeD8ALd5bxOBX/KChfSTOcarQlsaSw6RNxBsI=')
+True
+>>> check_password('47wREuFQ.xst1bUdmutLN9TiTObcjgg7GPR3STfvn', 'pbkdf2_sha256$390000$VEx99SUPYJnvMwAhReC6jH$YcQDHyYTM8STmeeHVzlfcONisfi7EFkbzcqHQ0q+JlU=')
+True
+
+
+Pueden hacerse muchos make_password y dara el mismo resultado al compararlo, como lo hace? No tengo idea
